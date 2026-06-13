@@ -1,0 +1,112 @@
+name: publish-cli
+
+# Publishes @skill-book/cli to the public npm registry.
+#
+# Trigger: push a tag of the form `cli-vX.Y.Z`, e.g.
+#     npm version <patch|minor|major> -w packages/cli   # bumps package.json
+#     # bump the hardcoded .version() in packages/cli/src/index.ts to match
+#     git commit -am "release: cli vX.Y.Z"
+#     git tag cli-vX.Y.Z && git push origin main --tags
+#
+# The dev-API-backed smoke (make verify-cli-package ENV=dev) stays a LOCAL gate —
+# run it before tagging. CI does an offline, AWS-free verification only.
+#
+# Authentication: npm Trusted Publishing (OIDC) — NO long-lived token/secret.
+# The job mints a short-lived credential from GitHub's OIDC at publish time.
+# One-time setup on npmjs.com (package @skill-book/cli → Settings → Trusted Publisher):
+#   Publisher = GitHub Actions, Organization/user = kter, Repository = skill-book,
+#   Workflow filename = publish-cli.yml, Environment = (blank).
+# This requires the `id-token: write` permission below and npm >= 11.5.1 (updated
+# in the job). Provenance is left OFF because the source repo is private — npm
+# attestation requires a PUBLIC repo. To enable it later: make the repo public,
+# add a "repository" field to packages/cli/package.json, and drop --provenance=false.
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: read
+  id-token: write # required for npm Trusted Publishing (OIDC)
+
+concurrency:
+  group: publish-cli-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0 # keep in sync with mise.toml
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Update npm (Trusted Publishing needs npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve and verify versions
+        id: ver
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#cli-v}"
+          pkg_version="$(node -p "require('./packages/cli/package.json').version")"
+          src_version="$(node -p "
+            const s = require('fs').readFileSync('packages/cli/src/index.ts','utf8');
+            const m = s.match(/\.version\(\"([^\"]+)\"\)/);
+            if (!m) { console.error('could not find .version() in src/index.ts'); process.exit(1); }
+            m[1];
+          ")"
+          echo "tag=$tag  derived version=$version"
+          echo "package.json=$pkg_version  src/index.ts=$src_version"
+          if [ "$version" != "$pkg_version" ]; then
+            echo "::error::tag ($version) does not match packages/cli/package.json ($pkg_version)"
+            exit 1
+          fi
+          if [ "$version" != "$src_version" ]; then
+            echo "::error::tag ($version) does not match the hardcoded .version() in src/index.ts ($src_version)"
+            exit 1
+          fi
+          if npm view "@skill-book/cli@$version" version >/dev/null 2>&1; then
+            echo "::error::@skill-book/cli@$version is already published (versions are immutable)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Typecheck and test
+        run: |
+          npm run build --workspace packages/shared
+          npm run typecheck --workspace packages/cli
+          npm run test --workspace packages/cli
+
+      - name: Pack the publishable tarball
+        run: |
+          set -euo pipefail
+          tarball="$(npm pack ./packages/cli | tail -n1)"
+          mv "$tarball" cli.tgz
+          echo "== published tarball contents =="
+          tar -tzf cli.tgz
+
+      - name: Offline smoke in a clean container
+        run: |
+          docker run --rm \
+            -e EXPECTED_VERSION="${{ steps.ver.outputs.version }}" \
+            -v "$PWD/cli.tgz:/tmp/cli.tgz:ro" \
+            -v "$PWD/scripts/cli_smoke_offline.sh:/tmp/smoke.sh:ro" \
+            --network none \
+            node:24-alpine sh /tmp/smoke.sh
+
+      - name: Publish to npm (Trusted Publishing / OIDC)
+        # No NODE_AUTH_TOKEN: npm >= 11.5.1 authenticates via the OIDC id-token.
+        # --provenance=false because the repo is private (see header for enabling it).
+        run: npm publish ./cli.tgz --access public --provenance=false
