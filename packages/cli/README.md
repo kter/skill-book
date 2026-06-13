@@ -28,10 +28,29 @@ skill-book whoami
 ## Common commands
 
 ```bash
-skill-book search [query] [--type CLAUDE_SKILL|CLAUDE_MD|AGENTS_MD] [--tag <tag>]
-skill-book info <name>
-skill-book install <name>[@version] [--global] [--dest <path>] [--force] [--dry-run]
-skill-book push [path] [--name <slug>] [--type <type>] [--tag <tag>...]
+skill-book search [query] [--type CLAUDE_SKILL|CLAUDE_MD|AGENTS_MD] [--tag <tag>] [--json]
+skill-book info <name> [--json]
+skill-book install <name>[@version|@latest] [--global] [--dest <path>] [--force] [--dry-run]
+skill-book push [path] [--name <slug>] [--type <type>] [--tag <tag>...] [--dry-run] [--yes]
+```
+
+`search`, `list`, `info`, and `whoami` accept `--json` for scripting.
+
+`push --dry-run` prints the inferred name/type and the exact file list **without
+uploading anything** — use it to confirm a publish before it happens (versions are
+immutable). On a TTY, `push` also asks for confirmation unless you pass `--yes`.
+
+A Claude Skill is a directory containing a `SKILL.md` at its root. The minimal form:
+
+```markdown
+---
+name: my-skill
+description: One line describing what the skill does.
+---
+
+# My Skill
+
+Instructions for the skill go here.
 ```
 
 `install` writes only to the explicit target (a Claude Skill goes to
