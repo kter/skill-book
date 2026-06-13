@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./auth": "./src/auth/index.ts",
     "./scanner": "./src/scanner/index.ts",
     "./zip": "./src/zip/index.ts",
     "./validators": "./src/validators/index.ts"

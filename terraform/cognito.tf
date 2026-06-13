@@ -22,6 +22,11 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
 
+  # Enforce the email-domain whitelist at registration (native + federated).
+  lambda_config {
+    pre_sign_up = aws_lambda_function.presignup.arn
+  }
+
   email_configuration {
     email_sending_account = "COGNITO_DEFAULT"
   }

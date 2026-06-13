@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { emailDomainNotAllowedMessage, isEmailDomainAllowed } from "@skill-book/shared/auth";
 import { config } from "@/lib/config";
 import { signInWithPassword, startGoogleSignIn } from "@/lib/auth";
 
@@ -32,6 +33,10 @@ export default function LoginPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isEmailDomainAllowed(email)) {
+      setError(emailDomainNotAllowedMessage());
+      return;
+    }
     setBusy(true);
     setError(null);
     try {

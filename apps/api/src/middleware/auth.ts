@@ -1,4 +1,5 @@
 import { CognitoJwtVerifier } from "aws-jwt-verify";
+import { emailDomainNotAllowedMessage, isEmailDomainAllowed } from "@skill-book/shared/auth";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
@@ -112,6 +113,11 @@ export function createAuthMiddleware(config: ApiConfig, db: Db): MiddlewareHandl
       const email = typeof payload.email === "string" ? payload.email : null;
       if (!email) {
         return c.json({ error: "token has no email claim (use the ID token)" }, 401);
+      }
+      // Email-domain whitelist (defense in depth — the Cognito pre-sign-up
+      // Lambda blocks registration; this also blocks any non-whitelisted token).
+      if (!isEmailDomainAllowed(email)) {
+        return c.json({ error: emailDomainNotAllowedMessage() }, 403);
       }
       const user = await upsertUser(db, {
         sub: payload.sub,
