@@ -103,9 +103,9 @@ build-shared: ## Build the shared package (consumed by api/web/cli)
 	cd packages/shared && npm run build
 
 .PHONY: build-api
-build-api: build-shared ## Bundle the API into a Lambda zip via esbuild
+build-api: build-shared ## Bundle the API + Cognito pre-sign-up Lambdas via esbuild
 	cd apps/api && npm run build
-	@echo "Lambda bundle: apps/api/dist/lambda.zip"
+	@echo "Lambda bundles: apps/api/dist/lambda.zip, apps/api/dist/presignup.zip"
 
 .PHONY: deploy-api
 deploy-api: build-api tf-switch ## Build and deploy the API Lambda via Terraform
