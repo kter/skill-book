@@ -42,15 +42,20 @@ export interface VersionSpec {
   version: number | undefined;
 }
 
-/** Parse `name`, `name@<n>`, or `name@latest`. Throws on a non-integer version. */
+/** Parse `name`, `name@<n>`, or `name@latest`. Throws on an empty name or a
+ *  version that is not a positive decimal integer (rejecting `""`, `-1`, `0`,
+ *  `0x10`, `3e2`, and surrounding whitespace, which `Number()` would silently
+ *  accept). */
 export function parseVersionSpec(nameSpec: string): VersionSpec {
   const [name, versionRaw] = nameSpec.split("@");
-  if (!versionRaw || versionRaw === "latest") return { name: name!, version: undefined };
-  const version = Number(versionRaw);
-  if (!Number.isInteger(version)) {
+  if (!name) {
+    throw new Error('missing artifact name — use "name", "name@2", or "name@latest"');
+  }
+  if (!versionRaw || versionRaw === "latest") return { name, version: undefined };
+  if (!/^\d+$/.test(versionRaw) || Number(versionRaw) < 1) {
     throw new Error(
-      `invalid version "${versionRaw}" — use a version number (e.g. ${name}@2) or ${name}@latest`,
+      `invalid version "${versionRaw}" — use a positive version number (e.g. ${name}@2) or ${name}@latest`,
     );
   }
-  return { name: name!, version };
+  return { name, version: Number(versionRaw) };
 }

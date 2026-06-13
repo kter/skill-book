@@ -180,6 +180,10 @@ program
       const result = await api.publish(name, upload.key, options.message);
       if (result.status === "PUBLISHED") {
         console.log(`Published ${name} v${result.version}`);
+      } else {
+        // A 2xx with a non-PUBLISHED status (e.g. still scanning) must not look
+        // like a clean success — surface it and exit non-zero.
+        fail(`push did not complete — server returned status ${result.status}`);
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
