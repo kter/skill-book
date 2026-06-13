@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createExplainer } from "./ai/explainer.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb, createPool } from "./db/client.js";
@@ -25,7 +26,9 @@ const storage = config.artifactsBucket
       `http://localhost:${port}`,
     );
 
-const app = createApp({ config, db, storage });
+const explainer = createExplainer(config);
+
+const app = createApp({ config, db, storage, explainer });
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`skill-book api listening on http://localhost:${info.port}`);

@@ -4,6 +4,7 @@ import type { ArtifactType, PublishResult, ScanFinding } from "@skill-book/share
 import { isProbablyBinary, scanFiles } from "@skill-book/shared/scanner";
 import { buildContentText, validateArtifact } from "@skill-book/shared/validators";
 import { createZip, safeUnzip, ZipSafetyError } from "@skill-book/shared/zip";
+import type { Explainer } from "../ai/explainer.js";
 import type { Db } from "../db/client.js";
 import { artifacts, artifactVersions, scanFindings, scanOverrides } from "../db/schema.js";
 import { ObjectNotFoundError, type Storage } from "../storage/index.js";
@@ -24,6 +25,7 @@ export class PublishError extends Error {
 export interface PublishParams {
   db: Db;
   storage: Storage;
+  explainer: Explainer;
   maxZipBytes: number;
   artifactName: string;
   callerUserId: string;
@@ -32,7 +34,7 @@ export interface PublishParams {
 }
 
 export async function publishVersion(params: PublishParams): Promise<PublishResult> {
-  const { db, storage, artifactName, callerUserId, stagingKey } = params;
+  const { db, storage, explainer, artifactName, callerUserId, stagingKey } = params;
 
   const artifactRows = await db
     .select()
@@ -141,13 +143,22 @@ export async function publishVersion(params: PublishParams): Promise<PublishResu
   await storage.putObject(zipKey, canonicalZip, "application/zip");
 
   const totalSizeBytes = normalized.reduce((sum, e) => sum + e.data.length, 0);
+  const fileList = normalized.map((e) => ({ path: e.path, size: e.data.length }));
+  const contentText = buildContentText(normalized);
+  // Best-effort AI summary so the preview is understandable at a glance; null on failure.
+  const explanation = await explainer.generate({
+    type: artifact.type as ArtifactType,
+    fileList,
+    contentText,
+  });
   await db
     .update(artifactVersions)
     .set({
       status: "PUBLISHED",
       zipKey,
-      contentText: buildContentText(normalized),
-      fileList: JSON.stringify(normalized.map((e) => ({ path: e.path, size: e.data.length }))),
+      contentText,
+      fileList: JSON.stringify(fileList),
+      explanation,
       totalSizeBytes,
       fileCount: normalized.length,
       publishedAt: new Date(),

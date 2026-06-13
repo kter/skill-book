@@ -12,6 +12,7 @@ import {
   type ArtifactVersionSummary,
   type VersionStatus,
 } from "@skill-book/shared";
+import type { Explainer } from "../ai/explainer.js";
 import type { ApiConfig } from "../config.js";
 import type { Db } from "../db/client.js";
 import {
@@ -36,6 +37,7 @@ interface Deps {
   db: Db;
   storage: Storage;
   config: ApiConfig;
+  explainer: Explainer;
 }
 
 function versionSummary(row: typeof artifactVersions.$inferSelect): ArtifactVersionSummary {
@@ -47,13 +49,14 @@ function versionSummary(row: typeof artifactVersions.$inferSelect): ArtifactVers
     totalSizeBytes: row.totalSizeBytes,
     fileCount: row.fileCount,
     message: row.message,
+    explanation: row.explanation,
     createdBy: row.createdBy,
     createdAt: row.createdAt.toISOString(),
     publishedAt: row.publishedAt?.toISOString() ?? null,
   };
 }
 
-export function createArtifactsRouter({ db, storage, config }: Deps): Hono {
+export function createArtifactsRouter({ db, storage, config, explainer }: Deps): Hono {
   const app = new Hono();
 
   // ---- list / search ----
@@ -180,6 +183,7 @@ export function createArtifactsRouter({ db, storage, config }: Deps): Hono {
       ...summary,
       versions: versionRows.map(versionSummary),
       contentPreview: latestPublished?.contentText ?? null,
+      explanation: latestPublished?.explanation ?? null,
       myRating: myRatingRows[0]?.stars ?? null,
       forks: forkRows,
     };
@@ -222,6 +226,7 @@ export function createArtifactsRouter({ db, storage, config }: Deps): Hono {
       const result = await publishVersion({
         db,
         storage,
+        explainer,
         maxZipBytes: config.maxZipBytes,
         artifactName: c.req.param("name"),
         callerUserId: c.get("user").id,

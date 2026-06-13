@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { Explainer } from "./ai/explainer.js";
 import type { ApiConfig } from "./config.js";
 import type { Db } from "./db/client.js";
 import { artifactTags } from "./db/schema.js";
@@ -13,9 +14,10 @@ export interface AppDeps {
   config: ApiConfig;
   db: Db;
   storage: Storage;
+  explainer: Explainer;
 }
 
-export function createApp({ config, db, storage }: AppDeps): Hono {
+export function createApp({ config, db, storage, explainer }: AppDeps): Hono {
   const app = new Hono();
 
   app.get("/healthz", (c) => c.json({ ok: true, environment: config.environment }));
@@ -91,7 +93,7 @@ export function createApp({ config, db, storage }: AppDeps): Hono {
     return c.json({ tags: rows.map((r) => r.tag) });
   });
 
-  app.route("/v1/artifacts", createArtifactsRouter({ db, storage, config }));
+  app.route("/v1/artifacts", createArtifactsRouter({ db, storage, config, explainer }));
 
   app.onError((err, c) => {
     console.error("unhandled error:", err);

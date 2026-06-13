@@ -53,6 +53,7 @@ export const artifactVersions = pgTable("artifact_versions", {
   totalSizeBytes: bigint("total_size_bytes", { mode: "number" }).notNull().default(0),
   fileCount: integer("file_count").notNull().default(0),
   message: text("message"),
+  explanation: text("explanation"),
   createdBy: uuid("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp("published_at", { withTimezone: true }),

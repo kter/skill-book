@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Hono } from "hono";
 import pg from "pg";
 import { createZip, type ZipEntry } from "@skill-book/shared/zip";
+import { type Explainer, NoopExplainer } from "../src/ai/explainer.js";
 import { createApp } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 import { createDb, type Db } from "../src/db/client.js";
@@ -22,7 +23,9 @@ export interface TestContext {
 
 const enc = new TextEncoder();
 
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(
+  explainer: Explainer = new NoopExplainer(),
+): Promise<TestContext> {
   const databaseUrl =
     process.env.DATABASE_URL ?? "postgresql://skillbook:skillbook@localhost:5433/skillbook";
   const schema = `test_${Math.random().toString(36).slice(2, 10)}`;
@@ -49,7 +52,7 @@ export async function createTestContext(): Promise<TestContext> {
   } as NodeJS.ProcessEnv);
 
   clearUserCache();
-  const app = createApp({ config, db, storage });
+  const app = createApp({ config, db, storage, explainer });
 
   return {
     app,
