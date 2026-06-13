@@ -7,7 +7,13 @@ import { api, ApiError, printFindings } from "./api.js";
 import { clearCredentials, loginWithBrowser, loginWithPassword } from "./auth.js";
 import { loadCliConfig, readStoredCredentials } from "./config.js";
 import { collectContent, slugify } from "./content.js";
-import { friendlyError, parseVersionSpec, truncate, validateTypeFilter } from "./format.js";
+import {
+  friendlyError,
+  notFoundMessage,
+  parseVersionSpec,
+  truncate,
+  validateTypeFilter,
+} from "./format.js";
 import { executeInstall, planInstall } from "./install.js";
 
 const program = new Command();
@@ -214,14 +220,14 @@ program
   .action(async (nameSpec: string, options) => {
     const { name, version } = parseVersionSpec(nameSpec);
     const info = await api.downloadInfo(name, version).catch((err) => {
-      if (err instanceof ApiError && err.status === 404) {
-        const what = version != null ? `${name}@${version}` : name;
-        if (typeof err.body.error === "string" && err.body.error.includes("no published")) {
-          fail(
-            `no published version of "${what}" — run \`skill-book info ${name}\` to see available versions`,
-          );
-        }
-        fail(`artifact "${name}" not found — run \`skill-book search ${name}\` to look it up`);
+      if (err instanceof ApiError) {
+        const msg = notFoundMessage(
+          err.status,
+          typeof err.body.error === "string" ? err.body.error : undefined,
+          name,
+          version,
+        );
+        if (msg) fail(msg);
       }
       throw err;
     });
@@ -271,8 +277,13 @@ program
   .option("--json", "output as JSON")
   .action(async (name: string, options: { json?: boolean }) => {
     const detail = await api.get(name).catch((err) => {
-      if (err instanceof ApiError && err.status === 404) {
-        fail(`artifact "${name}" not found — run \`skill-book search ${name}\` to look it up`);
+      if (err instanceof ApiError) {
+        const msg = notFoundMessage(
+          err.status,
+          typeof err.body.error === "string" ? err.body.error : undefined,
+          name,
+        );
+        if (msg) fail(msg);
       }
       throw err;
     });

@@ -12,7 +12,7 @@ import { api, ApiError } from "@/lib/api";
 /** Drop a leading YAML frontmatter block so the preview shows the document body
  *  instead of rendering `name:`/`description:` lines and a stray `<hr>`. */
 function stripFrontmatter(markdown: string): string {
-  return markdown.replace(/^\s*---\n[\s\S]*?\n---\n?/, "");
+  return markdown.replace(/^\s*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 }
 
 function extractPreviewMarkdown(contentText: string | null): string | null {
@@ -38,6 +38,7 @@ function ArtifactInner() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [forkName, setForkName] = useState<string | null>(null);
+  const [forking, setForking] = useState(false);
 
   const load = useCallback(async () => {
     if (!name) return;
@@ -63,7 +64,8 @@ function ArtifactInner() {
   const submitFork = async (e: React.FormEvent) => {
     e.preventDefault();
     const target = forkName?.trim();
-    if (!target || !detail) return;
+    if (!target || !detail || forking) return;
+    setForking(true);
     try {
       await api.createArtifact({
         name: target,
@@ -75,6 +77,7 @@ function ArtifactInner() {
       router.push(`/artifact/?name=${encodeURIComponent(target)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setForking(false);
     }
   };
 
@@ -120,10 +123,20 @@ function ArtifactInner() {
                 data-testid="fork-name-input"
                 autoFocus
               />
-              <button type="submit" className="btn btn-primary" data-testid="fork-confirm">
-                Create fork
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={forking}
+                data-testid="fork-confirm"
+              >
+                {forking ? "Creating…" : "Create fork"}
               </button>
-              <button type="button" className="btn" onClick={() => setForkName(null)}>
+              <button
+                type="button"
+                className="btn"
+                disabled={forking}
+                onClick={() => setForkName(null)}
+              >
                 Cancel
               </button>
             </form>

@@ -11,6 +11,24 @@ export function validateTypeFilter(type: string | undefined): ArtifactType | und
   throw new Error(`invalid --type "${type}" — use one of: ${ARTIFACT_TYPES.join(", ")}`);
 }
 
+/** Map a failed artifact lookup to an actionable CLI message, or null when the
+ *  error isn't a 404 the caller should rethrow. Centralises the one place that
+ *  inspects the server's error text, so the brittle match lives here and is
+ *  unit-tested. `version` is set for `name@<n>` installs. */
+export function notFoundMessage(
+  status: number,
+  errorText: string | undefined,
+  name: string,
+  version?: number,
+): string | null {
+  if (status !== 404) return null;
+  if (errorText?.includes("no published")) {
+    const what = version != null ? `${name}@${version}` : name;
+    return `no published version of "${what}" — run \`skill-book info ${name}\` to see available versions`;
+  }
+  return `artifact "${name}" not found — run \`skill-book search ${name}\` to look it up`;
+}
+
 /** Node fetch failures surface as `TypeError: fetch failed` whose `cause.code`
  *  is one of these. Keep the set narrow so unrelated wrapped errors are not
  *  mislabelled as connectivity problems. */
