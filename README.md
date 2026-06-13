@@ -6,6 +6,8 @@
 - Web: https://skill-book.dev.devtools.site (dev)
 - API: https://api.skill-book.dev.devtools.site (dev)
 
+利用者向けの使い方は **[利用マニュアル（docs/MANUAL.md）](docs/MANUAL.md)** を参照。
+
 ## Stack
 
 TypeScript monorepo (npm workspaces):
@@ -70,6 +72,27 @@ skill-book search terraform
 ```
 
 API URL は `SKILL_BOOK_API_URL` で上書き可（デフォルト: dev 環境）。
+
+### 配布（公開 npm）
+
+CLI 本体は秘密を持たない汎用クライアントで、**取得は誰でも可・操作はすべて API 側の
+認証認可で守られる**（無資格 / 無効トークンは 401）。そのため公開 npm に置き、
+`npx @skill-book/cli` をそのまま使えるようにする。スコープを自前で押さえることで
+dependency confusion も防ぐ。
+
+公開は取り消せないため、**publish 前に必ず Docker 隔離で実 tarball を検証する**:
+
+```bash
+make verify-cli-package ENV=dev   # 実publishされるtarballをcleanなcontainerでsmoke
+                                  #   - npm i -g で外部依存ゼロ（バンドル自己完結）を確認
+                                  #   - 無効トークン→401 / 無資格→拒否（認証認可の境界）
+                                  #   - whoami / search / install（dry-run→実書込→上書き拒否）
+                                  #   - 配置先はコンテナ内のみ。ホストの ~/.claude は不可侵
+make publish-cli                  # npm login + 2FA 済みアカウントで公開（最後の手動ステップ）
+```
+
+> パッケージは現状 dev エンドポイントを既定に同梱する。別レジストリ（会社 prd 等）へ
+> 向けるときは `SKILL_BOOK_API_URL` を設定し、同梱の既定値に依存しないこと。
 
 ## prd について
 
