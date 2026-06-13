@@ -7,6 +7,7 @@ import { api, ApiError, printFindings } from "./api.js";
 import { clearCredentials, loginWithBrowser, loginWithPassword } from "./auth.js";
 import { loadCliConfig, readStoredCredentials } from "./config.js";
 import { collectContent, slugify } from "./content.js";
+import { friendlyError, parseVersionSpec, truncate } from "./format.js";
 import { executeInstall, planInstall } from "./install.js";
 
 const program = new Command();
@@ -207,18 +208,8 @@ program
   .option("--force", "overwrite existing files")
   .option("--dry-run", "show what would be written without writing")
   .action(async (nameSpec: string, options) => {
-    const [name, versionRaw] = nameSpec.split("@");
-    let version: number | undefined;
-    if (versionRaw && versionRaw !== "latest") {
-      version = Number(versionRaw);
-      if (!Number.isInteger(version)) {
-        fail(
-          `invalid version "${versionRaw}" — use a version number (e.g. ${name}@2) or ${name}@latest`,
-        );
-      }
-    }
-
-    const info = await api.downloadInfo(name!, version);
+    const { name, version } = parseVersionSpec(nameSpec);
+    const info = await api.downloadInfo(name, version);
     console.log(`Downloading ${info.name} v${info.version}…`);
     const zipRes = await fetch(info.url);
     if (!zipRes.ok) fail(`download failed (${zipRes.status})`);
@@ -303,10 +294,6 @@ async function runSearch(
   }
 }
 
-function truncate(value: string, max: number): string {
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
-}
-
 function printJson(data: unknown): void {
   console.log(JSON.stringify(data, null, 2));
 }
@@ -323,19 +310,7 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function friendlyError(err: unknown): string {
-  if (err instanceof Error) {
-    const cause = (err as { cause?: { code?: string } }).cause;
-    if (err.message === "fetch failed" || cause?.code) {
-      const { apiUrl } = loadCliConfig();
-      return `cannot reach the registry API at ${apiUrl} — check your connection or SKILL_BOOK_API_URL`;
-    }
-    return err.message;
-  }
-  return String(err);
-}
-
 program.parseAsync().catch((err) => {
-  console.error(`error: ${friendlyError(err)}`);
+  console.error(`error: ${friendlyError(err, loadCliConfig().apiUrl)}`);
   process.exit(1);
 });

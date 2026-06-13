@@ -1,0 +1,56 @@
+// Pure formatting / parsing helpers shared by the CLI commands (unit-tested).
+
+/** Node fetch failures surface as `TypeError: fetch failed` whose `cause.code`
+ *  is one of these. Keep the set narrow so unrelated wrapped errors are not
+ *  mislabelled as connectivity problems. */
+const NETWORK_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+]);
+
+export function isNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.message === "fetch failed") return true;
+  const code = (err as { cause?: { code?: string } }).cause?.code;
+  return code != null && NETWORK_ERROR_CODES.has(code);
+}
+
+/** Human-readable message for the top-level error handler. Connectivity
+ *  failures become an actionable hint; everything else keeps its own message. */
+export function friendlyError(err: unknown, apiUrl: string): string {
+  if (isNetworkError(err)) {
+    return `cannot reach the registry API at ${apiUrl} — check your connection or SKILL_BOOK_API_URL`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Truncate to at most `max` characters, appending an ellipsis when clipped.
+ *  Counts by code points so surrogate pairs are never split. */
+export function truncate(value: string, max: number): string {
+  const chars = [...value];
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : value;
+}
+
+export interface VersionSpec {
+  name: string;
+  /** undefined means "latest" (explicit `@latest` or no `@version`). */
+  version: number | undefined;
+}
+
+/** Parse `name`, `name@<n>`, or `name@latest`. Throws on a non-integer version. */
+export function parseVersionSpec(nameSpec: string): VersionSpec {
+  const [name, versionRaw] = nameSpec.split("@");
+  if (!versionRaw || versionRaw === "latest") return { name: name!, version: undefined };
+  const version = Number(versionRaw);
+  if (!Number.isInteger(version)) {
+    throw new Error(
+      `invalid version "${versionRaw}" — use a version number (e.g. ${name}@2) or ${name}@latest`,
+    );
+  }
+  return { name: name!, version };
+}
