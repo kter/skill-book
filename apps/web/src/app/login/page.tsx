@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { emailDomainNotAllowedMessage, isEmailDomainAllowed } from "@skill-book/shared/auth";
 import { config } from "@/lib/config";
-import { signInWithPassword, startGoogleSignIn } from "@/lib/auth";
+import { getValidSession, signInWithPassword, startGoogleSignIn } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +12,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // Already signed in with a still-valid (or refreshable) session? Don't show a
+  // sign-in form on top of it — send them to the registry. getValidSession
+  // refreshes/clears expired tokens, so an unusable session correctly falls
+  // through to the form instead of bouncing back here.
+  useEffect(() => {
+    if (config.devAuthBypass) return;
+    let active = true;
+    getValidSession().then((session) => {
+      if (active && session) {
+        setRedirecting(true);
+        router.replace("/");
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  if (redirecting) return null;
 
   if (config.devAuthBypass) {
     return (

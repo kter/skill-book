@@ -1,5 +1,56 @@
 import { describe, expect, it } from "vitest";
-import { friendlyError, isNetworkError, parseVersionSpec, truncate } from "../src/format.js";
+import {
+  friendlyError,
+  isNetworkError,
+  notFoundMessage,
+  parseVersionSpec,
+  truncate,
+  validateTypeFilter,
+} from "../src/format.js";
+
+describe("notFoundMessage", () => {
+  it("returns null for non-404 statuses (caller rethrows)", () => {
+    expect(notFoundMessage(500, "boom", "my-skill")).toBeNull();
+    expect(notFoundMessage(403, undefined, "my-skill")).toBeNull();
+  });
+
+  it("names the artifact and suggests search on a plain 404", () => {
+    expect(notFoundMessage(404, "not found", "my-skill")).toBe(
+      'artifact "my-skill" not found — run `skill-book search my-skill` to look it up',
+    );
+  });
+
+  it("points at info when the version is unpublished, echoing the requested version", () => {
+    expect(notFoundMessage(404, "no published version available", "my-skill", 3)).toBe(
+      'no published version of "my-skill@3" — run `skill-book info my-skill` to see available versions',
+    );
+  });
+
+  it("omits the version suffix when none was requested", () => {
+    expect(notFoundMessage(404, "no published version available", "my-skill")).toBe(
+      'no published version of "my-skill" — run `skill-book info my-skill` to see available versions',
+    );
+  });
+});
+
+describe("validateTypeFilter", () => {
+  it("returns undefined when no filter is given", () => {
+    expect(validateTypeFilter(undefined)).toBeUndefined();
+  });
+
+  it("passes through valid artifact types", () => {
+    expect(validateTypeFilter("CLAUDE_SKILL")).toBe("CLAUDE_SKILL");
+    expect(validateTypeFilter("AGENTS_MD")).toBe("AGENTS_MD");
+  });
+
+  it("rejects an unknown type, listing the valid values", () => {
+    expect(() => validateTypeFilter("BOGUS")).toThrow(
+      'invalid --type "BOGUS" — use one of: CLAUDE_SKILL, CLAUDE_MD, AGENTS_MD',
+    );
+    // case-sensitive: lowercase is not accepted
+    expect(() => validateTypeFilter("claude_skill")).toThrow(/invalid --type/);
+  });
+});
 
 describe("parseVersionSpec", () => {
   it("treats a bare name as latest", () => {

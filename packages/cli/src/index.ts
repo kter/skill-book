@@ -7,7 +7,13 @@ import { api, ApiError, printFindings } from "./api.js";
 import { clearCredentials, loginWithBrowser, loginWithPassword } from "./auth.js";
 import { loadCliConfig, readStoredCredentials } from "./config.js";
 import { collectContent, slugify } from "./content.js";
-import { friendlyError, parseVersionSpec, truncate } from "./format.js";
+import {
+  friendlyError,
+  notFoundMessage,
+  parseVersionSpec,
+  truncate,
+  validateTypeFilter,
+} from "./format.js";
 import { executeInstall, planInstall } from "./install.js";
 
 const program = new Command();
@@ -213,7 +219,18 @@ program
   .option("--dry-run", "show what would be written without writing")
   .action(async (nameSpec: string, options) => {
     const { name, version } = parseVersionSpec(nameSpec);
-    const info = await api.downloadInfo(name, version);
+    const info = await api.downloadInfo(name, version).catch((err) => {
+      if (err instanceof ApiError) {
+        const msg = notFoundMessage(
+          err.status,
+          typeof err.body.error === "string" ? err.body.error : undefined,
+          name,
+          version,
+        );
+        if (msg) fail(msg);
+      }
+      throw err;
+    });
     console.log(`Downloading ${info.name} v${info.version}…`);
     const zipRes = await fetch(info.url);
     if (!zipRes.ok) fail(`download failed (${zipRes.status})`);
@@ -241,7 +258,7 @@ program
 program
   .command("search [query]")
   .description("Search the registry")
-  .option("--type <type>", "filter by type")
+  .option("--type <type>", "filter by type: CLAUDE_SKILL | CLAUDE_MD | AGENTS_MD")
   .option("--tag <tag>", "filter by tag")
   .option("--json", "output as JSON")
   .action((query: string | undefined, options) => runSearch(query, options));
@@ -249,7 +266,7 @@ program
 program
   .command("list")
   .description("List all artifacts")
-  .option("--type <type>", "filter by type")
+  .option("--type <type>", "filter by type: CLAUDE_SKILL | CLAUDE_MD | AGENTS_MD")
   .option("--tag <tag>", "filter by tag")
   .option("--json", "output as JSON")
   .action((options) => runSearch(undefined, options));
@@ -259,7 +276,17 @@ program
   .description("Show artifact details")
   .option("--json", "output as JSON")
   .action(async (name: string, options: { json?: boolean }) => {
-    const detail = await api.get(name);
+    const detail = await api.get(name).catch((err) => {
+      if (err instanceof ApiError) {
+        const msg = notFoundMessage(
+          err.status,
+          typeof err.body.error === "string" ? err.body.error : undefined,
+          name,
+        );
+        if (msg) fail(msg);
+      }
+      throw err;
+    });
     if (options.json) return printJson(detail);
     console.log(`${detail.name} (${artifactTypeLabel(detail.type)})`);
     console.log(`  ${detail.description}`);
@@ -278,7 +305,8 @@ async function runSearch(
 ): Promise<void> {
   const params: Record<string, string> = {};
   if (query) params.q = query;
-  if (options.type) params.type = options.type;
+  const type = validateTypeFilter(options.type);
+  if (type) params.type = type;
   if (options.tag) params.tag = options.tag;
   const { artifacts } = await api.list(params);
   if (options.json) return printJson(artifacts);
