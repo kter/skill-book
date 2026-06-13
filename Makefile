@@ -158,6 +158,22 @@ put-google-oauth: ## Store Google OAuth client id/secret in SSM (GOOGLE_CLIENT_I
 		--region $(AWS_REGION) --profile $(AWS_PROFILE)
 	@echo "Stored Google OAuth parameters for $(ENV)"
 
+.PHONY: verify-cli-package
+verify-cli-package: tf-switch ## Build, pack, and smoke-test the publishable CLI tarball in a clean Docker container (ENV=dev)
+ifeq ($(ENV),prd)
+	@echo "verify-cli-package runs against the dev API only"; exit 1
+else
+	$(eval API_URL := $(shell cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform output -raw api_url))
+	$(eval BYPASS_TOKEN := $(shell cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform output -raw integration_test_bypass_token))
+	API_URL=$(API_URL) BYPASS_TOKEN=$(BYPASS_TOKEN) ./scripts/verify_cli_package.sh
+endif
+
+.PHONY: publish-cli
+publish-cli: ## Publish @skill-book/cli to the public npm registry (run verify-cli-package first; needs npm login + 2FA)
+	@echo "About to publish @skill-book/cli to the public npm registry — this is irreversible."
+	@echo "Confirm 'make verify-cli-package ENV=dev' passed and 'npm whoami' shows the intended account."
+	cd packages/cli && npm publish
+
 .PHONY: create-e2e-user
 create-e2e-user: tf-switch ## Create/reset the E2E password test user in Cognito (E2E_USER_EMAIL=... E2E_USER_PASSWORD=...)
 	@if [ -z "$(E2E_USER_EMAIL)" ] || [ -z "$(E2E_USER_PASSWORD)" ]; then \
