@@ -1,5 +1,16 @@
 // Pure formatting / parsing helpers shared by the CLI commands (unit-tested).
 
+import { ARTIFACT_TYPES, type ArtifactType } from "@skill-book/shared";
+
+/** Validate a `--type` filter value against the known artifact types, throwing a
+ *  message that lists the valid values (the server otherwise returns a generic
+ *  "invalid query"). Returns undefined when no filter was given. */
+export function validateTypeFilter(type: string | undefined): ArtifactType | undefined {
+  if (type == null) return undefined;
+  if ((ARTIFACT_TYPES as readonly string[]).includes(type)) return type as ArtifactType;
+  throw new Error(`invalid --type "${type}" — use one of: ${ARTIFACT_TYPES.join(", ")}`);
+}
+
 /** Node fetch failures surface as `TypeError: fetch failed` whose `cause.code`
  *  is one of these. Keep the set narrow so unrelated wrapped errors are not
  *  mislabelled as connectivity problems. */

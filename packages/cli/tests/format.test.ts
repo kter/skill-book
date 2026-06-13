@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { friendlyError, isNetworkError, parseVersionSpec, truncate } from "../src/format.js";
+import {
+  friendlyError,
+  isNetworkError,
+  parseVersionSpec,
+  truncate,
+  validateTypeFilter,
+} from "../src/format.js";
+
+describe("validateTypeFilter", () => {
+  it("returns undefined when no filter is given", () => {
+    expect(validateTypeFilter(undefined)).toBeUndefined();
+  });
+
+  it("passes through valid artifact types", () => {
+    expect(validateTypeFilter("CLAUDE_SKILL")).toBe("CLAUDE_SKILL");
+    expect(validateTypeFilter("AGENTS_MD")).toBe("AGENTS_MD");
+  });
+
+  it("rejects an unknown type, listing the valid values", () => {
+    expect(() => validateTypeFilter("BOGUS")).toThrow(
+      'invalid --type "BOGUS" — use one of: CLAUDE_SKILL, CLAUDE_MD, AGENTS_MD',
+    );
+    // case-sensitive: lowercase is not accepted
+    expect(() => validateTypeFilter("claude_skill")).toThrow(/invalid --type/);
+  });
+});
 
 describe("parseVersionSpec", () => {
   it("treats a bare name as latest", () => {

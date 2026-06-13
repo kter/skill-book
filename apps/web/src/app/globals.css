@@ -248,6 +248,11 @@ label {
   display: flex;
   gap: 8px;
 }
+.fork-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 .detail-meta {
   color: var(--muted);
   font-size: 13px;
