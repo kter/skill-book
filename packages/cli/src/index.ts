@@ -1,10 +1,11 @@
+import readline from "node:readline";
 import { Command } from "commander";
 import { artifactTypeLabel, type ArtifactType, type ScanFinding } from "@skill-book/shared";
 import { scanFiles, isProbablyBinary } from "@skill-book/shared/scanner";
 import { createZip, safeUnzip } from "@skill-book/shared/zip";
 import { api, ApiError, printFindings } from "./api.js";
 import { clearCredentials, loginWithBrowser, loginWithPassword } from "./auth.js";
-import { readStoredCredentials } from "./config.js";
+import { loadCliConfig, readStoredCredentials } from "./config.js";
 import { collectContent, slugify } from "./content.js";
 import { executeInstall, planInstall } from "./install.js";
 
@@ -14,7 +15,21 @@ const decoder = new TextDecoder();
 program
   .name("skill-book")
   .description("Internal registry for Claude Skills, CLAUDE.md, and AGENTS.md files")
-  .version("0.1.0");
+  .version("0.1.0")
+  .addHelpText(
+    "after",
+    [
+      "",
+      "Examples:",
+      "  $ skill-book login",
+      "  $ skill-book search terraform --type CLAUDE_SKILL",
+      "  $ skill-book info some-skill",
+      "  $ skill-book install some-skill",
+      "  $ skill-book install team-rules --global",
+      "  $ skill-book push ./my-skill --dry-run",
+      "",
+    ].join("\n"),
+  );
 
 program
   .command("login")
@@ -47,10 +62,12 @@ program
 program
   .command("whoami")
   .description("Show the signed-in user")
-  .action(async () => {
+  .option("--json", "output as JSON")
+  .action(async (options: { json?: boolean }) => {
     const stored = readStoredCredentials();
     if (process.env.SKILL_BOOK_BYPASS_TOKEN) {
       const me = await api.me();
+      if (options.json) return printJson({ email: me.email, bypassToken: true });
       console.log(`${me.email} (bypass token)`);
       return;
     }
@@ -58,6 +75,7 @@ program
       fail("not logged in — run `skill-book login`");
     }
     const me = await api.me();
+    if (options.json) return printJson({ email: me.email });
     console.log(me.email);
   });
 
@@ -71,6 +89,8 @@ program
   .option("--message <text>", "version message")
   .option("--override <fingerprint...>", "accept these scan fingerprints as false positives", [])
   .option("--skip-local-scan", "skip the local pre-scan (the server still scans)")
+  .option("--dry-run", "show what would be published without uploading anything")
+  .option("--yes", "skip the confirmation prompt")
   .action(async (targetPath: string | undefined, options) => {
     const content = collectContent(targetPath ?? ".");
     const type = (options.type as ArtifactType | undefined) ?? content.detectedType;
@@ -104,8 +124,30 @@ program
       }
     }
 
-    console.log(`Pushing ${name} (${artifactTypeLabel(type)}, ${content.entries.length} files)…`);
+    // Preview the inferred name/type and the exact files before any network call,
+    // so an accidental publish under a wrong name is caught here (versions are immutable).
+    console.log("Push preview:");
+    console.log(`  name:  ${name}`);
+    console.log(`  type:  ${artifactTypeLabel(type)}`);
+    console.log(`  files: ${content.entries.length}`);
+    const preview = content.entries.slice(0, 20);
+    for (const entry of preview) console.log(`    ${entry.path}`);
+    if (content.entries.length > preview.length) {
+      console.log(`    … and ${content.entries.length - preview.length} more`);
+    }
+    if (options.dryRun) {
+      console.log("Dry run — nothing uploaded.");
+      return;
+    }
+    if (process.stdin.isTTY && !options.yes) {
+      const ok = await confirm(`Publish ${name}? [y/N] `);
+      if (!ok) {
+        console.log("Aborted.");
+        return;
+      }
+    }
 
+    console.log(`Pushing ${name}…`);
     try {
       await api.create({
         name,
@@ -123,6 +165,7 @@ program
     }
 
     const zip = createZip(content.entries);
+    console.log("Uploading…");
     const upload = await api.requestUpload();
     const putRes = await fetch(upload.url, {
       method: "PUT",
@@ -132,6 +175,7 @@ program
     if (!putRes.ok) fail(`staging upload failed (${putRes.status})`);
 
     try {
+      console.log("Publishing…");
       const result = await api.publish(name, upload.key, options.message);
       if (result.status === "PUBLISHED") {
         console.log(`Published ${name} v${result.version}`);
@@ -157,17 +201,25 @@ program
 
 program
   .command("install <name>")
-  .description("Download and install an artifact (name or name@version)")
+  .description("Download and install an artifact (name, name@version, or name@latest)")
   .option("--global", "install CLAUDE.md/AGENTS.md to ~/.claude/ instead of the current directory")
   .option("--dest <path>", "explicit destination directory/file")
   .option("--force", "overwrite existing files")
   .option("--dry-run", "show what would be written without writing")
   .action(async (nameSpec: string, options) => {
     const [name, versionRaw] = nameSpec.split("@");
-    const version = versionRaw ? Number(versionRaw) : undefined;
-    if (versionRaw && !Number.isInteger(version)) fail(`invalid version: ${versionRaw}`);
+    let version: number | undefined;
+    if (versionRaw && versionRaw !== "latest") {
+      version = Number(versionRaw);
+      if (!Number.isInteger(version)) {
+        fail(
+          `invalid version "${versionRaw}" — use a version number (e.g. ${name}@2) or ${name}@latest`,
+        );
+      }
+    }
 
     const info = await api.downloadInfo(name!, version);
+    console.log(`Downloading ${info.name} v${info.version}…`);
     const zipRes = await fetch(info.url);
     if (!zipRes.ok) fail(`download failed (${zipRes.status})`);
     const zip = new Uint8Array(await zipRes.arrayBuffer());
@@ -196,38 +248,24 @@ program
   .description("Search the registry")
   .option("--type <type>", "filter by type")
   .option("--tag <tag>", "filter by tag")
-  .action(async (query: string | undefined, options) => {
-    const params: Record<string, string> = {};
-    if (query) params.q = query;
-    if (options.type) params.type = options.type;
-    if (options.tag) params.tag = options.tag;
-    const { artifacts } = await api.list(params);
-    if (artifacts.length === 0) {
-      console.log("No artifacts found.");
-      return;
-    }
-    for (const artifact of artifacts) {
-      const stars = artifact.ratingAverage ? `★${artifact.ratingAverage.toFixed(1)}` : "★—";
-      console.log(
-        `${artifact.name.padEnd(32)} ${artifact.type.padEnd(13)} v${String(
-          artifact.latestVersion ?? "—",
-        ).padEnd(4)} ${stars} ⬇${artifact.downloadCount}  ${artifact.description.slice(0, 60)}`,
-      );
-    }
-  });
+  .option("--json", "output as JSON")
+  .action((query: string | undefined, options) => runSearch(query, options));
 
 program
   .command("list")
   .description("List all artifacts")
-  .action(async () => {
-    await program.parseAsync(["node", "skill-book", "search"]);
-  });
+  .option("--type <type>", "filter by type")
+  .option("--tag <tag>", "filter by tag")
+  .option("--json", "output as JSON")
+  .action((options) => runSearch(undefined, options));
 
 program
   .command("info <name>")
   .description("Show artifact details")
-  .action(async (name: string) => {
+  .option("--json", "output as JSON")
+  .action(async (name: string, options: { json?: boolean }) => {
     const detail = await api.get(name);
+    if (options.json) return printJson(detail);
     console.log(`${detail.name} (${artifactTypeLabel(detail.type)})`);
     console.log(`  ${detail.description}`);
     console.log(`  owner:     ${detail.ownerDisplayName ?? "unknown"}`);
@@ -239,12 +277,65 @@ program
     console.log(`  install:   npx @skill-book/cli install ${detail.name}`);
   });
 
+async function runSearch(
+  query: string | undefined,
+  options: { type?: string; tag?: string; json?: boolean },
+): Promise<void> {
+  const params: Record<string, string> = {};
+  if (query) params.q = query;
+  if (options.type) params.type = options.type;
+  if (options.tag) params.tag = options.tag;
+  const { artifacts } = await api.list(params);
+  if (options.json) return printJson(artifacts);
+  if (artifacts.length === 0) {
+    console.log("No artifacts found.");
+    return;
+  }
+  console.log(
+    `${"NAME".padEnd(32)} ${"TYPE".padEnd(13)} ${"VER".padEnd(5)} ${"RATING".padEnd(6)} ${"DL".padEnd(5)} DESCRIPTION`,
+  );
+  for (const artifact of artifacts) {
+    const stars = artifact.ratingAverage ? `★${artifact.ratingAverage.toFixed(1)}` : "★—";
+    const ver = `v${artifact.latestVersion ?? "—"}`;
+    console.log(
+      `${truncate(artifact.name, 32).padEnd(32)} ${artifact.type.padEnd(13)} ${ver.padEnd(5)} ${stars.padEnd(6)} ⬇${String(artifact.downloadCount).padEnd(3)} ${truncate(artifact.description, 60)}`,
+    );
+  }
+}
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function printJson(data: unknown): void {
+  console.log(JSON.stringify(data, null, 2));
+}
+
+async function confirm(question: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => rl.question(question, resolve));
+  rl.close();
+  return /^y(es)?$/i.test(answer.trim());
+}
+
 function fail(message: string): never {
   console.error(`error: ${message}`);
   process.exit(1);
 }
 
+function friendlyError(err: unknown): string {
+  if (err instanceof Error) {
+    const cause = (err as { cause?: { code?: string } }).cause;
+    if (err.message === "fetch failed" || cause?.code) {
+      const { apiUrl } = loadCliConfig();
+      return `cannot reach the registry API at ${apiUrl} — check your connection or SKILL_BOOK_API_URL`;
+    }
+    return err.message;
+  }
+  return String(err);
+}
+
 program.parseAsync().catch((err) => {
-  console.error(`error: ${err instanceof Error ? err.message : err}`);
+  console.error(`error: ${friendlyError(err)}`);
   process.exit(1);
 });

@@ -111,20 +111,23 @@ skill-book logout     # 保存した認証情報を削除
 ### 4.3 検索・参照
 
 ```bash
-skill-book search [query] [--type CLAUDE_SKILL|CLAUDE_MD|AGENTS_MD] [--tag <tag>]
-skill-book list                    # 全件
-skill-book info <name>             # 詳細（説明・所有者・評価・DL数・最新版など）
+skill-book search [query] [--type CLAUDE_SKILL|CLAUDE_MD|AGENTS_MD] [--tag <tag>] [--json]
+skill-book list [--type <type>] [--tag <tag>] [--json]   # 全件（フィルタ可）
+skill-book info <name> [--json]    # 詳細（説明・所有者・評価・DL数・最新版など）
 ```
+
+`search` / `list` / `info` / `whoami` は `--json` で機械可読出力に切り替えられます
+（スクリプト・CI 向け）。
 
 ### 4.4 インストール（取得）
 
 ```bash
-skill-book install <name>[@version] [options]
+skill-book install <name>[@version|@latest] [options]
 ```
 
 | オプション | 意味 |
 | --- | --- |
-| `<name>@<version>` | バージョン指定（省略時は最新の公開版） |
+| `<name>@<version>` | バージョン指定（整数。`@latest` または省略で最新の公開版） |
 | `--global` | `CLAUDE.md` / `AGENTS.md` を `~/.claude/` に置く（既定はカレント） |
 | `--dest <path>` | 配置先を明示指定 |
 | `--force` | 既存ファイルを上書き（**指定がなければ上書きせず中止**） |
@@ -148,7 +151,7 @@ skill-book push [path] [options]
 ```
 
 `path`（省略時はカレント）の内容を、型自動判定 →**ローカル事前スキャン**→
-アップロード→公開、の順に処理します。
+**プレビュー（推定 name/type・対象ファイル一覧）**→ アップロード→公開、の順に処理します。
 
 | オプション | 意味 |
 | --- | --- |
@@ -159,10 +162,29 @@ skill-book push [path] [options]
 | `--message <text>` | バージョンメッセージ |
 | `--override <fingerprint...>` | 確定した誤検知の指紋を許可 |
 | `--skip-local-scan` | ローカル事前スキャンを省略（**サーバ側スキャンは必ず実行**） |
+| `--dry-run` | 推定結果と対象ファイルを表示するだけ（**一切アップロードしない**） |
+| `--yes` | TTY での公開確認プロンプトを省略（CI 向け） |
+
+> **公開前の確認**: バージョン履歴は不変です（§5）。誤った name/type での公開を避けるため、
+> `push` は推定結果と対象ファイルを表示してから公開します。`--dry-run` でアップロード前に
+> 内容だけ確認でき、対話端末では公開前に確認プロンプトが出ます（`--yes` で省略）。
 
 機密が検知されると公開はブロックされ（HTTP 422）、検知一覧と
 `--override <fingerprint>` の案内が表示されます。誤検知と確認できた場合のみ
 オーバーライドして再実行してください。
+
+最小の Claude Skill は、ルートに `SKILL.md` を持つディレクトリです。
+
+```markdown
+---
+name: my-skill
+description: スキルが何をするかを一文で。
+---
+
+# My Skill
+
+スキルの指示をここに書きます。
+```
 
 ### 4.6 設定（環境変数）
 
