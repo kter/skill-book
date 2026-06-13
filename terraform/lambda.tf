@@ -25,6 +25,9 @@ locals {
         ["https://${local.current_env.domain_name}"],
         terraform.workspace == "dev" ? ["http://localhost:3000"] : []
       ))
+      BEDROCK_ENABLED  = "true"
+      BEDROCK_REGION   = var.aws_region
+      BEDROCK_MODEL_ID = var.bedrock_model_id
     }
   )
 }

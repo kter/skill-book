@@ -65,6 +65,33 @@ resource "aws_iam_role_policy" "artifacts_access" {
   })
 }
 
+# Bedrock: invoke the Sonnet inference profile to summarize artifact content at publish time.
+# A geographic inference profile may route to any region within its geography, so least-privilege
+# requires BOTH the inference-profile ARN (in this region) AND the foundation-model ARN with a
+# wildcard region. The foundation-model id is the profile id minus its geographic prefix.
+locals {
+  bedrock_foundation_model_id = replace(var.bedrock_model_id, "/^[a-z0-9-]+\\./", "")
+}
+
+resource "aws_iam_role_policy" "bedrock_access" {
+  name = "bedrock-access"
+  role = aws_iam_role.api.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["bedrock:InvokeModel"]
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}",
+          "arn:aws:bedrock:*::foundation-model/${local.bedrock_foundation_model_id}"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.api.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"

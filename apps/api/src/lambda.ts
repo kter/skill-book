@@ -1,4 +1,5 @@
 import { handle } from "hono/aws-lambda";
+import { createExplainer } from "./ai/explainer.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb, createPool } from "./db/client.js";
@@ -18,7 +19,8 @@ const pool = createPool({
 });
 const db = createDb(pool);
 const storage = new S3Storage(config.artifactsBucket, config.awsRegion);
+const explainer = createExplainer(config);
 
-const app = createApp({ config, db, storage });
+const app = createApp({ config, db, storage, explainer });
 
 export const handler = handle(app);

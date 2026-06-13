@@ -10,6 +10,12 @@ variable "project_name" {
   default     = "skill-book"
 }
 
+variable "bedrock_model_id" {
+  description = "Bedrock inference-profile id used to summarize artifact content at publish time"
+  type        = string
+  default     = "jp.anthropic.claude-sonnet-4-6"
+}
+
 # Environment-specific configurations
 locals {
   env_config = {

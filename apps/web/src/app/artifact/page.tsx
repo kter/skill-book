@@ -151,6 +151,17 @@ function ArtifactInner() {
         <code data-testid="install-oneliner">npx @skill-book/cli install {detail.name}</code>
       </div>
 
+      {detail.explanation && (
+        <>
+          <h2>概要（AI生成）</h2>
+          <div className="ai-summary" data-testid="ai-summary">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+              {detail.explanation}
+            </ReactMarkdown>
+          </div>
+        </>
+      )}
+
       {preview && (
         <>
           <h2>Preview</h2>

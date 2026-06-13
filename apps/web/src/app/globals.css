@@ -271,6 +271,20 @@ label {
   font-size: 13px;
 }
 
+.ai-summary {
+  background: #f3f8ff;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+.ai-summary p:first-child {
+  margin-top: 0;
+}
+.ai-summary p:last-child {
+  margin-bottom: 0;
+}
+
 .version-table {
   width: 100%;
   border-collapse: collapse;

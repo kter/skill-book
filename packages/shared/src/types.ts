@@ -38,6 +38,8 @@ export interface ArtifactVersionSummary {
   totalSizeBytes: number;
   fileCount: number;
   message: string | null;
+  /** AI-generated summary of this version's content (null if unavailable). */
+  explanation: string | null;
   createdBy: string;
   createdAt: string;
   publishedAt: string | null;
@@ -46,6 +48,8 @@ export interface ArtifactVersionSummary {
 export interface ArtifactDetail extends ArtifactSummary {
   versions: ArtifactVersionSummary[];
   contentPreview: string | null;
+  /** AI-generated summary of the latest published version's content (null if unavailable). */
+  explanation: string | null;
   myRating: number | null;
   forks: { id: string; name: string }[];
 }
