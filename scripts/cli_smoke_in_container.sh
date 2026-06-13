@@ -43,7 +43,10 @@ SKILL_BOOK_API_URL="$API_URL" SKILL_BOOK_BYPASS_TOKEN="$BYPASS_TOKEN" skill-book
 
 echo
 echo "== smoke 5: install round-trip into the container HOME (best-effort) =="
-NAME="$(awk 'NR==1 && $1 !~ /^No$/ {print $1}' /tmp/list)"
+# Skip the header row (line 1: "NAME TYPE ...") and take the first data row.
+# When there are no results the only line is "No artifacts found." (no header),
+# so NR>1 never matches and NAME stays empty -> the round-trip is skipped.
+NAME="$(awk 'NR>1 {print $1; exit}' /tmp/list)"
 if [ -n "${NAME:-}" ]; then
   echo "-- target artifact: $NAME"
   echo "-- dry run (no writes) --"
