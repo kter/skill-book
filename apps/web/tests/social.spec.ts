@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { uniqueName, uploadSingleFile, VALID_SKILL_MD } from "./helpers";
 
-test.describe("ratings, downloads, and forks", () => {
-  test("rates, downloads, and forks an artifact", async ({ page }) => {
+test.describe("ratings and forks", () => {
+  test("rates and forks an artifact", async ({ page }) => {
     const name = uniqueName("e2e-social");
 
     await uploadSingleFile(page, {
@@ -17,16 +17,6 @@ test.describe("ratings, downloads, and forks", () => {
     // Rate 4 stars
     await page.getByTestId("star-4").click();
     await expect(page.getByTestId("notice")).toContainText("Rated 4", { timeout: 10000 });
-
-    // Download increments the counter
-    const downloadPromise = page.waitForEvent("download", { timeout: 20000 }).catch(() => null);
-    await page.getByTestId("download-button").click();
-    const download = await downloadPromise;
-    if (download) {
-      expect(download.suggestedFilename()).toContain(name);
-    }
-    await page.goto(`/artifact/?name=${encodeURIComponent(name)}`);
-    await expect(page.locator(".detail-meta")).toContainText("1 downloads", { timeout: 15000 });
 
     // Fork creates a lineage-linked artifact
     const forkName = `${name}-fork`;

@@ -53,12 +53,6 @@ function ArtifactInner() {
     await load();
   };
 
-  const download = async (version?: number) => {
-    const { url } = await api.downloadUrl(name, version);
-    window.location.href = url;
-    setTimeout(load, 800); // refresh the download counter
-  };
-
   const fork = async () => {
     const forkName = window.prompt("Name for your fork (kebab-case):", `${name}-fork`);
     if (!forkName || !detail) return;
@@ -71,7 +65,8 @@ function ArtifactInner() {
         forkedFromArtifactId: detail.id,
       });
       setNotice(
-        `Fork "${forkName}" created. Download this artifact, modify it, and publish to your fork.`,
+        `Fork "${forkName}" created. Run \`npx @skill-book/cli install ${name}\` to get the source, ` +
+          `modify it, then \`npx @skill-book/cli push --name ${forkName}\` to publish.`,
       );
       router.push(`/artifact/?name=${encodeURIComponent(forkName)}`);
     } catch (err) {
@@ -103,15 +98,6 @@ function ArtifactInner() {
         <div className="detail-actions">
           <button type="button" className="btn" onClick={fork} data-testid="fork-button">
             ⑂ Fork
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => download()}
-            disabled={detail.latestVersion == null}
-            data-testid="download-button"
-          >
-            ⬇ Download zip
           </button>
         </div>
       </div>
@@ -197,7 +183,6 @@ function ArtifactInner() {
             <th>Files</th>
             <th>Size</th>
             <th>Published</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -210,13 +195,6 @@ function ArtifactInner() {
               <td>{version.fileCount}</td>
               <td>{(version.totalSizeBytes / 1024).toFixed(1)} KB</td>
               <td>{version.publishedAt ? new Date(version.publishedAt).toLocaleString() : "—"}</td>
-              <td>
-                {version.status === "PUBLISHED" && (
-                  <button type="button" className="btn" onClick={() => download(version.version)}>
-                    ⬇
-                  </button>
-                )}
-              </td>
             </tr>
           ))}
         </tbody>
