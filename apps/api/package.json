@@ -1,0 +1,29 @@
+{
+  "name": "@skill-book/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "test": "vitest run --exclude 'tests/integration/**'",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
+    "@aws-sdk/dsql-signer": "^3.901.0",
+    "@aws-sdk/s3-request-presigner": "^3.901.0",
+    "@skill-book/shared": "*",
+    "aws-jwt-verify": "^5.1.0",
+    "drizzle-orm": "^0.44.2",
+    "hono": "^4.10.3",
+    "pg": "^8.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.19.0",
+    "@types/pg": "^8.15.4",
+    "esbuild": "^0.25.10",
+    "tsx": "^4.20.0"
+  }
+}

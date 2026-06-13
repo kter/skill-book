@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+.next/
+coverage/
+playwright-report/
+test-results/
+terraform/
+*.md
+package-lock.json

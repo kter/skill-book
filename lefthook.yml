@@ -1,0 +1,23 @@
+pre-commit:
+  commands:
+    format-check:
+      run: make format-check
+    lint:
+      run: make lint
+    unit-tests:
+      run: make test-unit
+    conftest-verify:
+      glob: "terraform/policies/**/*.rego"
+      run: make conftest-verify
+    conftest-test-fixtures:
+      glob: "terraform/policies/**"
+      run: make conftest-test-fixtures
+
+pre-push:
+  commands:
+    unit-tests:
+      run: make test-unit
+    integration-tests:
+      run: make test-integration ENV=dev
+    conftest-test-fixtures:
+      run: make conftest-test-fixtures

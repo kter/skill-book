@@ -1,0 +1,65 @@
+{
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.frontend",
+      "type": "aws_s3_bucket",
+      "name": "frontend",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "skill-book-frontend-dev",
+          "tags_all": { "Project": "skill-book", "Environment": "dev", "ManagedBy": "terraform" }
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_public_access_block.frontend",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "frontend",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "block_public_acls": true,
+          "block_public_policy": true,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role.api",
+      "type": "aws_iam_role",
+      "name": "api",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"lambda.amazonaws.com\"]}}]}",
+          "tags_all": { "Project": "skill-book", "Environment": "dev", "ManagedBy": "terraform" }
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.scoped",
+      "type": "aws_iam_role_policy",
+      "name": "scoped",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::skill-book-artifacts-dev/staging/*\"]}]}"
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.api",
+      "type": "aws_lambda_function",
+      "name": "api",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "function_name": "skill-book-api-dev",
+          "tags_all": { "Project": "skill-book", "Environment": "dev", "ManagedBy": "terraform" }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@skill-book/cli",
+  "version": "0.1.0",
+  "description": "CLI for the skill-book internal registry: push, install, and search Claude Skills, CLAUDE.md, and AGENTS.md",
+  "type": "module",
+  "bin": {
+    "skill-book": "dist/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@skill-book/shared": "*",
+    "commander": "^12.1.0"
+  }
+}

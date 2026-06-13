@@ -1,0 +1,53 @@
+{
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.bad",
+      "type": "aws_s3_bucket",
+      "name": "bad",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "totally-unrelated-name",
+          "tags_all": { "Project": "skill-book", "Environment": "production", "ManagedBy": "manual" }
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_public_access_block.bad",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "bad",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "block_public_acls": true,
+          "block_public_policy": false,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.wildcard",
+      "type": "aws_iam_role_policy",
+      "name": "wildcard",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}"
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role.bad_trust",
+      "type": "aws_iam_role",
+      "name": "bad_trust",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"ec2.amazonaws.com\"]}}]}",
+          "tags_all": { "Project": "skill-book", "Environment": "dev", "ManagedBy": "terraform" }
+        }
+      }
+    }
+  ]
+}

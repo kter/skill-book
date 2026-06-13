@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+.next/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.local
+*.auto.tfvars
+
+# Terraform
+terraform/.terraform/
+terraform/tfplan.tfplan
+terraform/tfplan.json
+terraform/*.tfstate
+terraform/*.tfstate.backup
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+apps/web/playwright/.auth/
+
+# Misc
+.DS_Store
+*.log
+
+# Claude Code harness artifacts
+.claude/scheduled_tasks.lock
+.e2e-fixtures/

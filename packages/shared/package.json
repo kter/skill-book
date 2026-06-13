@@ -1,0 +1,21 @@
+{
+  "name": "@skill-book/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scanner": "./src/scanner/index.ts",
+    "./zip": "./src/zip/index.ts",
+    "./validators": "./src/validators/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "yaml": "^2.8.0",
+    "zod": "^3.25.76"
+  }
+}

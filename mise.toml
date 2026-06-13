@@ -1,0 +1,6 @@
+[tools]
+node = "24.14.0"
+terraform = "1.15.5"
+awscli = "2.34.57"
+lefthook = "2.1.9"
+"github:open-policy-agent/conftest" = "0.68.2"
