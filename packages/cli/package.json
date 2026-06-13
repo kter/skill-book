@@ -3,19 +3,30 @@
   "version": "0.1.0",
   "description": "CLI for the skill-book internal registry: push, install, and search Claude Skills, CLAUDE.md, and AGENTS.md",
   "type": "module",
+  "license": "UNLICENSED",
+  "homepage": "https://skill-book.dev.devtools.site",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "skill-book": "dist/index.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "node esbuild.mjs",
+    "prepack": "node esbuild.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
     "@skill-book/shared": "*",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "esbuild": "^0.25.10"
   }
 }
