@@ -19,6 +19,16 @@ CONFTEST ?= $(shell mise which conftest 2>/dev/null || echo conftest)
 AWS_PROFILE = $(ENV)
 AWS_REGION ?= ap-northeast-1
 
+# prd is the company account and is NOT deployed from this machine (see AGENTS.md).
+# Every mutating/deploy target depends on `require-dev` so an accidental
+# `ENV=prd` is refused with friction, not silently auto-approved.
+.PHONY: require-dev
+require-dev:
+	@test "$(ENV)" = "dev" || { \
+		echo "Refusing: '$(ENV)' is not deployable from this machine — dev only (see AGENTS.md)."; \
+		exit 1; \
+	}
+
 AWS_ACCOUNT_ID = $(shell aws sts get-caller-identity --profile $(AWS_PROFILE) --query Account --output text 2>/dev/null)
 OPTIONAL_SSM_PARAMETER_SCRIPT := ./scripts/get_optional_ssm_parameter.sh
 LOCAL_DATABASE_URL ?= postgresql://skillbook:skillbook@localhost:5433/skillbook
@@ -50,7 +60,7 @@ db-migrate: db-up ## Apply database migrations to local Postgres
 	cd apps/api && DATABASE_URL=$(LOCAL_DATABASE_URL) npx tsx src/db/migrate.ts
 
 .PHONY: db-migrate-dev
-db-migrate-dev: tf-switch ## Apply database migrations to the deployed DSQL cluster (ENV=dev)
+db-migrate-dev: require-dev tf-switch ## Apply database migrations to the deployed DSQL cluster (ENV=dev)
 	$(eval DSQL_ENDPOINT := $(shell cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform output -raw dsql_endpoint))
 	cd apps/api && \
 	  AWS_PROFILE=$(AWS_PROFILE) AWS_REGION=$(AWS_REGION) \
@@ -108,7 +118,7 @@ build-api: build-shared ## Bundle the API + Cognito pre-sign-up Lambdas via esbu
 	@echo "Lambda bundles: apps/api/dist/lambda.zip, apps/api/dist/presignup.zip"
 
 .PHONY: deploy-api
-deploy-api: build-api tf-switch ## Build and deploy the API Lambda via Terraform
+deploy-api: require-dev build-api tf-switch ## Build and deploy the API Lambda via Terraform
 	cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform apply -auto-approve
 	@echo "API deployed!"
 
@@ -129,7 +139,7 @@ build-frontend: tf-switch build-shared ## Build frontend for the selected enviro
 	  npm run build
 
 .PHONY: deploy-frontend
-deploy-frontend: build-frontend ## Build and deploy frontend to S3 + CloudFront invalidation
+deploy-frontend: require-dev build-frontend ## Build and deploy frontend to S3 + CloudFront invalidation
 	$(eval BUCKET := $(shell cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform output -raw frontend_bucket_name))
 	$(eval CF_DIST := $(shell cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform output -raw cloudfront_distribution_id))
 	aws s3 sync apps/web/out/ s3://$(BUCKET) --delete --profile $(AWS_PROFILE)
@@ -137,7 +147,7 @@ deploy-frontend: build-frontend ## Build and deploy frontend to S3 + CloudFront 
 	@echo "Frontend deployed to $(BUCKET) (CloudFront invalidation in progress)"
 
 .PHONY: deploy
-deploy: ## Full deploy: API + migrations + frontend + integration tests
+deploy: require-dev ## Full deploy: API + migrations + frontend + integration tests
 	@$(MAKE) --no-print-directory deploy-api ENV=$(ENV)
 	@$(MAKE) --no-print-directory db-migrate-dev ENV=$(ENV)
 	@$(MAKE) --no-print-directory deploy-frontend ENV=$(ENV)
@@ -145,7 +155,7 @@ deploy: ## Full deploy: API + migrations + frontend + integration tests
 	@echo "Full deployment and verification complete!"
 
 .PHONY: put-google-oauth
-put-google-oauth: ## Store Google OAuth client id/secret in SSM (GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...)
+put-google-oauth: require-dev ## Store Google OAuth client id/secret in SSM (GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...)
 	@if [ -z "$(GOOGLE_CLIENT_ID)" ] || [ -z "$(GOOGLE_CLIENT_SECRET)" ]; then \
 		echo "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required"; \
 		exit 1; \
@@ -175,7 +185,7 @@ publish-cli: ## Publish @skill-book/cli to the public npm registry (run verify-c
 	cd packages/cli && npm publish
 
 .PHONY: create-e2e-user
-create-e2e-user: tf-switch ## Create/reset the E2E password test user in Cognito (E2E_USER_EMAIL=... E2E_USER_PASSWORD=...)
+create-e2e-user: require-dev tf-switch ## Create/reset the E2E password test user in Cognito (E2E_USER_EMAIL=... E2E_USER_PASSWORD=...)
 	@if [ -z "$(E2E_USER_EMAIL)" ] || [ -z "$(E2E_USER_PASSWORD)" ]; then \
 		echo "E2E_USER_EMAIL and E2E_USER_PASSWORD are required"; \
 		exit 1; \
@@ -242,7 +252,7 @@ conftest-test-fixtures: conftest-verify ## Verify policy behaviour: valid plan p
 		test $$rc -ne 0 || (echo "FAIL: violation_plan.json passed — policy regression detected" >&2; exit 1)
 
 .PHONY: tf-apply
-tf-apply: tf-switch ## Run Terraform apply
+tf-apply: require-dev tf-switch ## Run Terraform apply
 	cd terraform && AWS_PROFILE=$(AWS_PROFILE) terraform apply -auto-approve
 
 .PHONY: tf-output

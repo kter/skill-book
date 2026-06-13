@@ -71,7 +71,11 @@ export class BedrockExplainer implements Explainer {
           inferenceConfig: { maxTokens: MAX_OUTPUT_TOKENS, temperature: 0.2 },
         }),
       );
-      const text = response.output?.message?.content?.[0]?.text?.trim();
+      // Find the first block that actually carries text — a model may emit a
+      // non-text block (e.g. reasoning) before the answer, so index 0 is unsafe.
+      const text = response.output?.message?.content
+        ?.find((block) => typeof block.text === "string" && block.text.trim().length > 0)
+        ?.text?.trim();
       return text || null;
     } catch (err) {
       console.error("explanation generation failed:", err);

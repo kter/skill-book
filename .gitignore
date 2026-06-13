@@ -24,6 +24,8 @@ coverage/
 playwright-report/
 test-results/
 apps/web/playwright/.auth/
+# Local filesystem storage backend (artifact blobs written by the dev API)
+apps/api/.local-storage/
 
 # Misc
 .DS_Store

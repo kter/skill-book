@@ -20,12 +20,24 @@ describe("parseVersionSpec", () => {
 
   it("rejects a non-integer version with an actionable message", () => {
     expect(() => parseVersionSpec("my-skill@bogus")).toThrow(
-      'invalid version "bogus" — use a version number (e.g. my-skill@2) or my-skill@latest',
+      'invalid version "bogus" — use a positive version number (e.g. my-skill@2) or my-skill@latest',
     );
   });
 
   it("rejects a fractional version", () => {
     expect(() => parseVersionSpec("my-skill@1.5")).toThrow(/invalid version "1\.5"/);
+  });
+
+  it("rejects an empty artifact name", () => {
+    expect(() => parseVersionSpec("@latest")).toThrow(/missing artifact name/);
+    expect(() => parseVersionSpec("@3")).toThrow(/missing artifact name/);
+    expect(() => parseVersionSpec("")).toThrow(/missing artifact name/);
+  });
+
+  it("rejects non-positive and exotic numeric versions Number() would accept", () => {
+    for (const bad of ["0", "-1", "0x10", "3e2", " 3 ", "+3"]) {
+      expect(() => parseVersionSpec(`my-skill@${bad}`)).toThrow(/invalid version/);
+    }
   });
 });
 

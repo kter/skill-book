@@ -1,7 +1,7 @@
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { emailDomainNotAllowedMessage, isEmailDomainAllowed } from "@skill-book/shared/auth";
 import { eq } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import type { ApiConfig } from "../config.js";
 import type { Db } from "../db/client.js";
@@ -28,6 +28,15 @@ interface TokenClaims {
 
 // Per-container cache: cognito sub -> resolved user row
 const userCache = new Map<string, AuthUser>();
+
+/** Constant-time string equality. `timingSafeEqual` throws on length mismatch,
+ *  so hash both sides to fixed-length buffers first (the hash isn't secret —
+ *  it just equalizes length while keeping the compare timing-independent). */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 export async function upsertUser(db: Db, claims: TokenClaims): Promise<AuthUser> {
   const cached = userCache.get(claims.sub);
@@ -93,7 +102,11 @@ export function createAuthMiddleware(config: ApiConfig, db: Db): MiddlewareHandl
     }
 
     // Integration-test bypass (dev only; tokens injected via Terraform/SSM).
-    const bypassIndex = config.integrationBypassTokens.indexOf(token);
+    // Constant-time comparison so a token can't be recovered by timing the
+    // string compare `indexOf` would do.
+    const bypassIndex = config.integrationBypassTokens.findIndex((t) =>
+      timingSafeEqualStr(t, token),
+    );
     if (bypassIndex >= 0) {
       const user = await upsertUser(db, {
         sub: `integration-test-${bypassIndex + 1}`,

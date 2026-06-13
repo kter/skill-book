@@ -40,6 +40,14 @@ interface Deps {
   explainer: Explainer;
 }
 
+/** Parse a `:version` path param as a positive integer, rejecting `Number()`
+ *  laxity (`-1`, `0`, `0x10`, `3e2`, whitespace). Returns null when invalid. */
+function parseVersionParam(raw: string | undefined): number | null {
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return n >= 1 ? n : null;
+}
+
 function versionSummary(row: typeof artifactVersions.$inferSelect): ArtifactVersionSummary {
   return {
     id: row.id,
@@ -260,8 +268,8 @@ export function createArtifactsRouter({ db, storage, config, explainer }: Deps):
   app.get("/:name/versions/:version", async (c) => {
     const artifact = await findArtifactByName(db, c.req.param("name"));
     if (!artifact) return c.json({ error: "not found" }, 404);
-    const versionNumber = Number(c.req.param("version"));
-    if (!Number.isInteger(versionNumber)) return c.json({ error: "invalid version" }, 400);
+    const versionNumber = parseVersionParam(c.req.param("version"));
+    if (versionNumber === null) return c.json({ error: "invalid version" }, 400);
     const rows = await db
       .select()
       .from(artifactVersions)
@@ -322,8 +330,8 @@ export function createArtifactsRouter({ db, storage, config, explainer }: Deps):
 
   app.get("/:name/download", (c) => download(c, undefined));
   app.get("/:name/versions/:version/download", (c) => {
-    const versionNumber = Number(c.req.param("version"));
-    if (!Number.isInteger(versionNumber)) return c.json({ error: "invalid version" }, 400);
+    const versionNumber = parseVersionParam(c.req.param("version"));
+    if (versionNumber === null) return c.json({ error: "invalid version" }, 400);
     return download(c, versionNumber);
   });
 
