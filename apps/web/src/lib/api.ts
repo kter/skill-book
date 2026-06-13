@@ -92,13 +92,6 @@ export const api = {
       body: JSON.stringify({ stars }),
     }),
 
-  downloadUrl: (name: string, version?: number) =>
-    apiFetch<{ url: string; fileName: string }>(
-      version != null
-        ? `/v1/artifacts/${name}/versions/${version}/download`
-        : `/v1/artifacts/${name}/download`,
-    ),
-
   tags: () => apiFetch<{ tags: string[] }>("/v1/tags"),
 };
 
