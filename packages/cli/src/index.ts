@@ -16,7 +16,7 @@ const decoder = new TextDecoder();
 program
   .name("skill-book")
   .description("Internal registry for Claude Skills, CLAUDE.md, and AGENTS.md files")
-  .version("0.1.0")
+  .version("0.1.1")
   .addHelpText(
     "after",
     [

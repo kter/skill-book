@@ -1,6 +1,6 @@
 {
   "name": "@skill-book/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for the skill-book internal registry: push, install, and search Claude Skills, CLAUDE.md, and AGENTS.md",
   "type": "module",
   "license": "UNLICENSED",
